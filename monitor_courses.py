@@ -1,13 +1,32 @@
 import json
+import copy
+import random
 import pandas as pd
 import time
 import requests
+from threading import Thread
 from bs4 import BeautifulSoup
+import sys
 
 with open("mycourses.json", "r") as f:
     my_course_numbers = json.load(f)
 
-fetch_interval = 10  # seconds
+with open("tokens.json", "r") as f:
+    tokens = json.load(f)
+
+
+def send_pushbullet(message):
+    token = tokens["pushbullet"]
+    url = "https://api.pushbullet.com/v2/pushes"
+    headers = {"Access-Token": token, "Content-Type": "application/json"}
+    data = {"type": "note", "title": "Course Monitor", "body": message}
+
+    r = requests.post(url, headers=headers, json=data)
+
+
+send_pushbullet("Course monitor started.")
+
+fetch_interval = 10 * 60  # seconds, every 10 minutes
 
 req_headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
@@ -88,24 +107,60 @@ def diff_seating_pretty(prev, curr):
     return changes
 
 
-prev_sections = list(all_sections)
+def update_section_seating(section):
+    try:
+        print(f"Attempting to update {section['course']}-{section['name']}")
+        section["seating"] = get_section_seating(section)
 
+        return True
+    except Exception as e:
+        pretty_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        print(f"[{pretty_time}] {e}")
+
+        return False
+
+
+# from https://stackoverflow.com/questions/6893968/how-to-get-the-return-value-from-a-thread
+class ThreadWithReturnValue(Thread):
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}):
+        Thread.__init__(self, group, target, name, args, kwargs)
+        self._return = None
+        self._target = target
+        self._args = args
+        self._kwargs = kwargs
+
+    def run(self):
+        if self._target is not None:
+            self._return = self._target(*self._args, **self._kwargs)
+
+    def join(self, *args):
+        Thread.join(self, *args)
+        return self._return
+
+
+with open("temp.json", "w") as f:
+    json.dump(all_sections, f)
+
+prev_sections = []
+
+dt = fetch_interval / len(all_sections)
 while True:
-    prev_sections = list(all_sections)
-    prev_sections[1]["seating"] = get_section_seating(prev_sections[0])
-    prev_sections[1]["seating"]["Seats"]["Remaining"] = 123
+    prev_sections = copy.deepcopy(all_sections)
 
-    for section in all_sections:
-        try:
-            section["seating"] = get_section_seating(section)
-        except Exception as e:
-            print(e)
-            break
+    successes = 0
+    total = 0
+    for i in range(len(all_sections)):
+        total += 1
+        success = update_section_seating(all_sections[i])
+        successes += success
 
-    for prev, curr in zip(prev_sections, all_sections):
-        changes = diff_seating_pretty(prev, curr)
-        if len(changes) > 0:
-            for change in changes:
-                print(change)
+        print(f"Section {all_sections[i]["name"]} update {"success" if success else "failure"}")
 
-    time.sleep(fetch_interval)
+        if success:
+            changes = diff_seating_pretty(prev_sections[i], all_sections[i])
+            if len(changes) > 0:
+                for change in changes:
+                    print(change)
+                    send_pushbullet(change)
+
+        time.sleep(dt)
