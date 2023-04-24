@@ -15,22 +15,29 @@ with open("tokens.json", "r") as f:
     tokens = json.load(f)
 
 
-def send_pushbullet(message):
-    token = tokens["pushbullet"]
-    url = "https://api.pushbullet.com/v2/pushes"
-    headers = {"Access-Token": token, "Content-Type": "application/json"}
-    data = {"type": "note", "title": "Course Monitor", "body": message}
+def send_push(message):
+    print("=====================")
+    print(message)
+    print("=====================")
+
+    token = tokens["pushover-app"]
+    user = tokens["pushover-user"]
+    url = "https://api.pushover.net/1/messages.json"
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "token": token,
+        "user": user,
+        "message": message,
+    }
 
     r = requests.post(url, headers=headers, json=data)
 
 
-send_pushbullet("Course monitor started.")
+send_push("Course monitor started.")
 
-fetch_interval = 10 * 60  # seconds, every 10 minutes
+fetch_interval = 60
 
-req_headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
-}
+req_headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"}
 
 
 with open("courses.json", "r") as f:
@@ -50,8 +57,12 @@ for course in my_courses:
         all_sections.append(section)
 
 
+proxyPool = set()
+
+
 def get_section_seating(section):
     r = requests.get(section["link"], headers=req_headers)
+
     if "sorry" in r.text:
         raise Exception(f"Rate limited for {section['link']}")
 
@@ -98,9 +109,7 @@ def diff_seating_pretty(prev, curr):
         for key in ["Capacity", "Actual", "Remaining"]:
             try:
                 if prev["seating"][seating_type][key] != curr["seating"][seating_type][key]:
-                    changes.append(
-                        f"{section_title_full} {seating_type} {key} changed from {prev['seating'][seating_type][key]} to {curr['seating'][seating_type][key]}"
-                    )
+                    changes.append(f"{section_title_full} {seating_type} {key} changed from {prev['seating'][seating_type][key]} to {curr['seating'][seating_type][key]}")
             except KeyError:
                 pass
 
@@ -161,7 +170,7 @@ while True:
             if len(changes) > 0:
                 for change in changes:
                     print(change)
-                    send_pushbullet(change)
+                    send_push(change)
 
         time.sleep(dt)
 

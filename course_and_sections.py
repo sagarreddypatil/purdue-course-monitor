@@ -6,8 +6,8 @@ import requests
 import json
 
 
-term_selection = "Spring 2023"
-subject_selections = ["CS", "STAT", "ENGL", "SCLA", "COM"]
+term_selection = "Fall 2023"
+subject_selections = ["CS", "ILS"]
 
 base_url = "https://selfservice.mypurdue.purdue.edu"  # to append the links to
 
@@ -20,11 +20,7 @@ except FileNotFoundError:
     cache = None
 
 # if cache exists and the term and subjects are the same, use the cache
-if (
-    cache is not None
-    and cache["term"] == term_selection
-    and cache["subjects"] == subject_selections
-):
+if cache is not None and cache["term"] == term_selection and cache["subjects"] == subject_selections:
     print("Using cache")
     soup = BeautifulSoup(cache["source"], "html.parser")
 else:
@@ -85,9 +81,7 @@ for row in tbody.find_all("tr"):
 
     courses.append(course)
 
-req_headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
-}
+req_headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"}
 
 
 def get_course_sections(course):
