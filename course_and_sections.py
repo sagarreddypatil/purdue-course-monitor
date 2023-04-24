@@ -7,7 +7,7 @@ import json
 
 
 term_selection = "Fall 2023"
-subject_selections = ["CS", "ILS"]
+subject_selections = ["CS", "ILS", "EAPS"]
 
 base_url = "https://selfservice.mypurdue.purdue.edu"  # to append the links to
 
@@ -85,55 +85,59 @@ req_headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb
 
 
 def get_course_sections(course):
-    r = requests.get(course["link"], headers=req_headers)
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    links = []
-    base_link = soup.find("a", string="All Sections for this Course")
-    if base_link is not None:
-        links.append(base_link)
-    else:
-        # get all the links on the line that has a span containing "Schedule Types", before the br
-        # only the links on this line are the ones we want
-        span = soup.find("span", string="Schedule Types: ")
-        if span is None:
-            return []
-
-        for sibling in span.next_siblings:
-            if sibling.name == "br":
-                break
-            if sibling.name == "a":
-                links.append(sibling)
-
-    sections = []
-
-    for link in links:
-        if link is None:
-            continue
-
-        link = base_url + link["href"]
-
-        r = requests.get(link, headers=req_headers)
+    try:
+        r = requests.get(course["link"], headers=req_headers)
         soup = BeautifulSoup(r.text, "html.parser")
 
-        table = soup.find("table", {"class": "datadisplaytable"})
-        ths = table.find_all("th", {"class": "ddlabel"})
+        links = []
+        base_link = soup.find("a", string="All Sections for this Course")
+        if base_link is not None:
+            links.append(base_link)
+        else:
+            # get all the links on the line that has a span containing "Schedule Types", before the br
+            # only the links on this line are the ones we want
+            span = soup.find("span", string="Schedule Types: ")
+            if span is None:
+                return []
 
-        for row in ths:
-            # example "Systems Programming - 13335 - CS 25200 - L01"
-            link = row.find("a")
-            text_segments = link.text.split(" - ")
+            for sibling in span.next_siblings:
+                if sibling.name == "br":
+                    break
+                if sibling.name == "a":
+                    links.append(sibling)
 
-            section = {
-                "id": text_segments[1],
-                "name": text_segments[3],
-                "link": base_url + link["href"],
-            }
+        sections = []
 
-            if section not in sections:
-                sections.append(section)
+        for link in links:
+            if link is None:
+                continue
 
-        return sections
+            link = base_url + link["href"]
+
+            r = requests.get(link, headers=req_headers)
+            soup = BeautifulSoup(r.text, "html.parser")
+
+            table = soup.find("table", {"class": "datadisplaytable"})
+            ths = table.find_all("th", {"class": "ddlabel"})
+
+            for row in ths:
+                # example "Systems Programming - 13335 - CS 25200 - L01"
+                link = row.find("a")
+                text_segments = link.text.split(" - ")
+
+                section = {
+                    "id": text_segments[1],
+                    "name": text_segments[3],
+                    "link": base_url + link["href"],
+                }
+
+                if section not in sections:
+                    sections.append(section)
+
+            return sections
+    except Exception as e:
+        print(e)
+        return ["Failed"]
 
 
 def add_sections_to_course(course):

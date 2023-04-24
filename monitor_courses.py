@@ -8,17 +8,34 @@ from threading import Thread
 from bs4 import BeautifulSoup
 import sys
 
+try:
 with open("mycourses.json", "r") as f:
     my_course_numbers = json.load(f)
+except FileNotFoundError:
+    print(
+        """courses.json not found, create it and add a list of courses to monitor
+Example:
+[
+    "CS 10100",
+    "CS 10200"
+]"""
+    )
+    sys.exit(1)
 
-with open("tokens.json", "r") as f:
-    tokens = json.load(f)
+try:
+    with open("tokens.json", "r") as f:
+        tokens = json.load(f)
+except FileNotFoundError:
+    print("tokens.json not found, will not send push notifications")
+    tokens = None
 
 
 def send_push(message):
     print("=====================")
     print(message)
     print("=====================")
+    if not tokens:
+        return
 
     token = tokens["pushover-app"]
     user = tokens["pushover-user"]
@@ -33,15 +50,17 @@ def send_push(message):
     r = requests.post(url, headers=headers, json=data)
 
 
-send_push("Course monitor started.")
-
 fetch_interval = 60
-
 req_headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"}
 
+try:
+    with open("courses.json", "r") as f:
+        courses = json.load(f)
+except FileNotFoundError:
+    print("courses.json not found, run course_and_sections.py first")
+    sys.exit(1)
 
-with open("courses.json", "r") as f:
-    courses = json.load(f)
+send_push("Course monitor started.")
 
 my_courses = []
 for course in courses:
@@ -55,9 +74,6 @@ for course in my_courses:
     for section in course["sections"]:
         section["course"] = course["number"]
         all_sections.append(section)
-
-
-proxyPool = set()
 
 
 def get_section_seating(section):
@@ -102,11 +118,16 @@ def diff_seating_pretty(prev, curr):
         if prev["seating"] == curr["seating"]:
             return []
     except KeyError:
-        return []
+        prev["seating"] = {
+            "Seats": {
+                "Remaining": 0,
+            }
+        }
 
     changes = []
     for seating_type in ["Seats", "Waitlist Seats"]:
-        for key in ["Capacity", "Actual", "Remaining"]:
+        # for key in ["Capacity", "Actual", "Remaining"]:
+        for key in ["Remaining"]:
             try:
                 if prev["seating"][seating_type][key] != curr["seating"][seating_type][key]:
                     changes.append(f"{section_title_full} {seating_type} {key} changed from {prev['seating'][seating_type][key]} to {curr['seating'][seating_type][key]}")
