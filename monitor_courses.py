@@ -154,7 +154,7 @@ while True:
         success = update_section_seating(all_sections[i])
         successes += success
 
-        print(f"Section {all_sections[i]["name"]} update {"success" if success else "failure"}")
+        print(f"Section {all_sections[i]['name']} update {'success' if success else 'failure'}")
 
         if success:
             changes = diff_seating_pretty(prev_sections[i], all_sections[i])
@@ -164,3 +164,5 @@ while True:
                     send_pushbullet(change)
 
         time.sleep(dt)
+
+    print(f"{successes}/{total} successful updates")
