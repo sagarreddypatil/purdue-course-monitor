@@ -1,3 +1,5 @@
+**NOTE: This is outdated, [take a look at this instead](https://github.com/sagarreddypatil/purdue-course-monitor-discord/). It sends messages to a Discord WebHook**
+
 # Purdue Course Tracker
 
 ## Usage
